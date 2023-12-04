@@ -9,36 +9,43 @@ main =
 
 readLine = \total ->
     result <- await Stdin.line
-    state = when result is
-        Input line -> Step (total + calibrationValue line)
-        End -> Done total
+    state =
+        when result is
+            Input line -> Step (total + calibrationValue line)
+            End -> Done total
     Task.ok state
 
 calibrationValue : Str -> U32
 calibrationValue = \line ->
-    result = Str.walkScalars line {first: None, last: None} findFirstLastDigit
-    first = when result.first is
-        None -> ""
-        Value v -> Num.toStr v
-    last = when result.last is
-        None -> ""
-        Value v -> Num.toStr v
+    result = Str.walkScalars line { first: None, last: None } findFirstLastDigit
+    first =
+        when result.first is
+            None -> ""
+            Value v -> Num.toStr v
+    last =
+        when result.last is
+            None -> ""
+            Value v -> Num.toStr v
     val = "\(first)\(last)"
-    dbg "\(line) -> \(val)"
+    dbg
+        "\(line) -> \(val)"
+
     when Str.toU32 val is
         Ok v -> v
         Err InvalidNumStr -> 0
 
 findFirstLastDigit : State, U32 -> State
 findFirstLastDigit = \state, scalar ->
-    if scalar >= 48 && scalar <= 57 && state.first == None then {first: Value (scalar - 48), last: Value (scalar - 48)}
+    if scalar >= 48 && scalar <= 57 && state.first == None then
+        { first: Value (scalar - 48), last: Value (scalar - 48) }
+    else if scalar >= 48 && scalar <= 57 && state.first != None then
+        { state & last: Value (scalar - 48) }
     else
-    if scalar >= 48 && scalar <= 57 && state.first != None then {state & last: Value (scalar - 48)}
-    else state
+        state
 
 State : {
-    first: Maybe U32,
-    last:  Maybe U32,
+    first : Maybe U32,
+    last : Maybe U32,
 }
 
-Maybe t: [ Value t, None]
+Maybe t : [Value t, None]
