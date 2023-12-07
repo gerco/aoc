@@ -137,14 +137,14 @@ expect
 handTypeValue : HandType -> Nat
 handTypeValue = \type ->
     when type is
-Unknown -> 0
-    FiveOfAKind -> 7
-    FourOfAKind -> 6
-    FullHouse -> 5
-    ThreeOfAKind -> 4
-    TwoPair -> 3
-    OnePair -> 2
-    HighCard -> 1
+        Unknown -> 0
+        FiveOfAKind -> 7
+        FourOfAKind -> 6
+        FullHouse -> 5
+        ThreeOfAKind -> 4
+        TwoPair -> 3
+        OnePair -> 2
+        HighCard -> 1
     
 cardValue : Card -> U8
 cardValue = \card ->
