@@ -34,7 +34,12 @@ solve = \hands ->
     hands
     |> List.map (\hand -> { hand & type: handType hand.cards })
     |> List.sortWith handComparator
+    |> List.map printHand
     |> List.walkWithIndex 0 \sum, hand, idx -> sum + (hand.bid * (idx + 1))
+
+printHand = \hand ->
+    dbg "\(Str.joinWith hand.cards "") -> \(Inspect.toStr hand.type)" 
+    hand
 
 handComparator : Hand, Hand -> [LT, EQ, GT]
 handComparator = \a, b ->
@@ -73,76 +78,67 @@ expect cardsComparator ("KK677" |> Str.graphemes) ("KTJJT" |> Str.graphemes) == 
 
 handType : List Card -> HandType
 handType = \cards ->
+    numberOfJokers : Nat
+    numberOfJokers = cards |> List.countIf \card -> card == "J"
+
     incrementCardCount : [Present Nat, Missing] -> [Present Nat, Missing]
     incrementCardCount = \v ->
         when v is
             Present n -> Present (n + 1)
             Missing -> Present 1
 
-    cardCounts : List Nat
-    cardCounts =
-        List.walk
-            cards
+    cardCounts : Dict Card Nat
+    cardCounts = cards
+        |> List.dropIf \card -> card == "J"
+        |> List.walk
             (Dict.empty {})
             (\counts, card -> Dict.update counts card incrementCardCount)
+
+    dbg cardCounts
+
+    highestCount : Nat
+    highestCount = cardCounts 
+        |> Dict.values 
+        |> List.max 
+        |> Result.withDefault 0
+
+    cardCountsWithJokers : List Nat
+    cardCountsWithJokers =
+        cardCounts
         |> Dict.values
+        |> List.sortDesc
+        |> List.update 0 \v -> v + numberOfJokers
 
-    basicType : HandType
-    basicType =
-        if cardCounts |> contains 5 then
-            FiveOfAKind
-        else if cardCounts |> contains 4 then
-            FourOfAKind
-        else if cardCounts |> contains 3 && cardCounts |> contains 2 then
-            FullHouse
-        else if cardCounts |> contains 3 then
-            ThreeOfAKind
-        else if cardCounts |> List.keepIf (\n -> n == 2) |> List.len == 2 then
-            TwoPair
-        else if cardCounts |> contains 2 then
-            OnePair
-        else
-            HighCard
-
-    if !(cards |> contains "J") then
-        basicType
+    if numberOfJokers == 5 || cardCountsWithJokers |> contains 5 then
+        FiveOfAKind
+    else if cardCountsWithJokers |> contains 4 then
+        FourOfAKind
+    else if cardCountsWithJokers |> contains 3 && cardCountsWithJokers |> contains 2 then
+        FullHouse
+    else if cardCountsWithJokers |> contains 3 then
+        ThreeOfAKind
+    else if cardCountsWithJokers |> List.keepIf (\n -> n == 2) |> List.len == 2 then
+        TwoPair
+    else if cardCountsWithJokers |> contains 2 then
+        OnePair
     else
-        cards
-        |> List.walkWithIndex basicType (\bestType, cardToReplace, idx ->
-            candidateType = if cardToReplace != "J" then
-                    basicType
-                else
-                    tryAllReplacementCards cards idx
-            when handTypeComparator bestType candidateType is
-                LT -> candidateType
-                _ -> bestType)
+        HighCard
 
-replaceCard : List Card, Nat, Card -> List Card
-replaceCard = \list, idx, replacement ->
-    List.update list idx \_ -> replacement
+expect 
+    result = handType ("JJ73J" |> Str.graphemes)
+    result == FourOfAKind
 
-expect replaceCard ("23456" |> Str.graphemes) 0 "J" |> Str.joinWith "" == "J3456"
-expect replaceCard ("23456" |> Str.graphemes) 1 "J" |> Str.joinWith "" == "2J456"
-expect replaceCard ("23456" |> Str.graphemes) 2 "J" |> Str.joinWith "" == "23J56"
-expect replaceCard ("23456" |> Str.graphemes) 3 "J" |> Str.joinWith "" == "234J6"
-expect replaceCard ("23456" |> Str.graphemes) 4 "J" |> Str.joinWith "" == "2345J"
+expect 
+    result = handType ("JJJJJ" |> Str.graphemes)
+    result == FiveOfAKind
 
-tryAllReplacementCards : List Card, Nat -> HandType
-tryAllReplacementCards = \cards, idx ->
-    cardsWithoutJ = "AKQT98765432" |> Str.graphemes
+expect 
+    result = handType ("AJTJ3" |> Str.graphemes)
+    result == ThreeOfAKind
 
-    cardsWithoutJ
-    |> List.walk Unknown \bestType, replacementCard ->
-        replacementCards = replaceCard cards idx replacementCard
-        candidateType = handType replacementCards
-        dbg "\(Str.joinWith replacementCards "") -> \(Inspect.toStr candidateType)"
-        when handTypeComparator bestType candidateType is
-            LT -> candidateType
-            _ -> bestType
-
-expect tryAllReplacementCards ("22222" |> Str.graphemes) 0 == FiveOfAKind
-expect tryAllReplacementCards ("J2222" |> Str.graphemes) 0 == FiveOfAKind
-expect tryAllReplacementCards ("22J33" |> Str.graphemes) 2 == FullHouse
+expect
+    result = handType ("36J36" |> Str.graphemes)
+    result == FullHouse
 
 handTypeValue : HandType -> Nat
 handTypeValue = \type ->
